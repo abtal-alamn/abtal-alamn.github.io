@@ -489,8 +489,7 @@ function vGate(){
     ${apiReady()?'':'<p class="err">الموقع غير مربوط بـ Google Sheets بعد. ضعي رابط Web app في API_URL.</p>'}
     <input id="pin" type="password" autocomplete="off" aria-label="رمز الدخول" placeholder="رمز الدخول">
     <p class="err" id="pinErr" hidden></p>
-    <button class="btn primary" id="pinGo" ${loading?'disabled':''}>${loading?'جارٍ التحميل…':'دخول'}</button>
-    <button class="btn" id="demoGate">جرّبي ببيانات تجريبية</button></section></div>`;
+    <button class="btn primary" id="pinGo" ${loading?'disabled':''}>${loading?'جارٍ التحميل…':'دخول'}</button></section></div>`;
 }
 const bar=(label,v,color,right,wide)=>`<div class="br ${wide?'w':''}"><span>${label}</span><span class="tr"><i style="width:${v??0}%;background:${color}"></i></span><em>${right}</em></div>`;
 function vDash(){
@@ -599,7 +598,6 @@ document.addEventListener('click',async e=>{
     loading=true;render();
     try{remoteResults=await loadResults(key);teacherKey=key;teacherOpen=true;useDemo=false;loading=false;render()}
     catch(ex){loading=false;render();const er=$('#pinErr');er.textContent=ex.message==='wrong key'?'الرمز غير صحيح.':'تعذّر الاتصال، تأكدي من الإنترنت ومن رابط Web app.';er.hidden=false}}
-  else if(t.id==='demoGate'){useDemo=true;teacherOpen=true;render()}
   else if(t.id==='refresh'){t.disabled=true;try{remoteResults=await loadResults(teacherKey)}catch(ex){}render()}
   else if(t.id==='demoOn'){useDemo=true;render()}
   else if(t.id==='demoOff'){useDemo=false;render()}
