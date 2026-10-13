@@ -171,8 +171,8 @@ button{cursor:pointer}
 .rec.high{--lv:var(--bad);background:#FFFAFA}
 .rec.mid{--lv:var(--gold)}
 .rec.good{--lv:var(--ok);background:#FAFDFB}
-.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-@media (max-width:820px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.kpis{gap:8px}.kpi{padding:10px}.kpi strong{font-size:1.4rem}.kpi span,.kpi em{font-size:.72rem}}
 .kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:0;min-width:0}
 .kpi span{font-size:.8rem;font-weight:600;color:var(--muted)}
 .kpi strong{font-family:var(--kufi);font-size:1.75rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.5;color:var(--green)}
@@ -442,7 +442,7 @@ function compute(){
   });
   const catAvg=CATS.map(c=>{const a=scope.filter(r=>r.cat===c.id);return {c,v:avg(a),n:a.length,people:new Set(a.map(r=>r.studentKey)).size}});
   const qs=[];CATS.forEach(c=>{const a=scope.filter(r=>r.cat===c.id);if(!a.length)return;
-    c.qs.forEach((q,i)=>qs.push({c,q,p:pct(a.filter(r=>Number(r.answers[i])===1).length,a.length),n:a.length}))});
+    c.qs.forEach((q,i)=>{const ok=a.filter(r=>Number(r.answers[i])===1).length;qs.push({c,q,ok,p:pct(ok,a.length),n:a.length})})});
   qs.sort((a,b)=>a.p-b.p);
   const gGap=CATS.map(c=>{const m=rs.filter(r=>(F.cls==='all'||r.grade+r.section===F.cls)&&r.gender==='m'&&r.cat===c.id),f=rs.filter(r=>(F.cls==='all'||r.grade+r.section===F.cls)&&r.gender==='f'&&r.cat===c.id);
     return {c,m:avg(m),f:avg(f),ok:m.length>=5&&f.length>=5}});
@@ -464,14 +464,12 @@ function recommend(d){
   const ranked=d.catAvg.filter(x=>x.v!==null&&x.n>=3).sort((a,b)=>a.v-b.v);
   if(ranked.length&&ranked[0].v<80){
     const w=ranked[0], hq=d.qs.filter(x=>x.c.id===w.c.id).slice(0,2);
-    R.push({lv:w.v<60?'high':'mid',ic:'🎙️',t:`ركزي التوعية على «${w.c.name}»`,p:`أضعف محور بمتوسط ${ar(w.v)}٪. أكثر سؤال أخطأ فيه الطلاب: «${hq[0].q.q}» (${ar(hq[0].p)}٪ فقط أجابوا صح).`,msg:`الرسالة المقترحة للإذاعة: ${hq[0].q.w}${hq[1]&&hq[1].p<70?' '+hq[1].q.w:''}`});
+    R.push({lv:w.v<60?'high':'mid',ic:'🎙️',t:`ركزي التوعية على «${w.c.name}»`,p:`أضعف محور بمتوسط ${ar(w.v)}٪. أكثر سؤال أخطأ فيه الطلاب: «${hq[0].q.q}» (${ar(hq[0].ok)} من ${ar(hq[0].n)} أجابوا صح).`,msg:`الرسالة المقترحة للإذاعة: ${hq[0].q.w}${hq[1]&&hq[1].p<70?' '+hq[1].q.w:''}`});
   }
   // 3) weak class × topic cells
   const cells=[];d.classes.forEach(cl=>CATS.forEach(c=>{const x=cl.cat[c.id];if(x.v!==null&&x.n>=3&&x.v<60)cells.push({cl,c,v:x.v})}));
   cells.sort((a,b)=>a.v-b.v);
   if(cells.length)R.push({lv:'high',ic:'🏫',t:`حصة توعية قصيرة ${cells.length===1?'لفصل':'لهذه الفصول'}`,p:cells.slice(0,4).map(x=>`فصل ${x.cl.l} في ${x.c.name} (${ar(x.v)}٪)`).join('، ')+(cells.length>4?` و${ar(cells.length-4)} غيرها.`:'.')});
-  // 4) follow-up
-  if(d.follow.length)R.push({lv:'mid',ic:'👀',t:`${plural(d.follow.length,'طالب واحد يحتاج','طالبان يحتاجان','طلاب يحتاجون')} متابعة فردية`,p:`جابوا ${ar(WEAK_MAX)} أو أقل من ${ar(6)} في محور واحد على الأقل. أسماؤهم في قائمة «يحتاجون متابعة» تحت.`});
   // 5) topics many haven't tried
   const notTried=d.catAvg.filter(x=>d.list.length>=5&&x.people<d.list.length*0.6);
   if(notTried.length)R.push({lv:'mid',ic:'⏳',t:`كثير ما حلّوا ${notTried.map(x=>'«'+x.c.name+'»').join(' و')}`,p:`حلّه ${notTried.map(x=>`${ar(x.people)} من ${ar(d.list.length)}`).join(' و')} مشارك. شجعيهم يكملون المحاور الأربعة.`});
@@ -512,7 +510,6 @@ function vDash(){
   <div class="kpis">
     <div class="kpi"><span>${d.totalSize?'نسبة المشاركة':'المشاركون'}</span><strong>${partTxt}</strong><em>${d.totalSize?`${ar(d.sizedN)} من ${ar(d.totalSize)} طالب`:'أدخلي أعداد الفصول لحساب النسبة'}</em></div>
     <div class="kpi"><span>متوسط الإجابات الصحيحة</span><strong>${d.all===null?'—':ar(d.all)+'٪'}</strong><em>${ar(d.scope.length)} محاولة</em></div>
-    <div class="kpi ${d.follow.length?'warn':''}"><span>يحتاجون متابعة</span><strong>${ar(d.follow.length)}</strong><em>${ar(WEAK_MAX)} أو أقل في محور</em></div>
     <div class="kpi gold"><span>أبطال الأمن</span><strong>${ar(d.heroes.length)}</strong><em>${ar(HERO_MIN)}+ في المحاور الأربعة</em></div>
   </div>
   <div class="g2">
@@ -527,14 +524,8 @@ function vDash(){
     <div class="scroll"><table><thead><tr><th>الفصل</th>${CATS.map(c=>`<th>${EMO[c.id]} ${c.name}</th>`).join('')}<th>المتوسط</th></tr></thead><tbody>
     ${d.classes.map(cl=>`<tr><td>فصل ${cl.l}</td>${CATS.map(c=>{const v=cl.cat[c.id].v;return `<td style="${heat(v)}">${v===null?'—':ar(v)+'٪'}</td>`}).join('')}<td style="${heat(cl.avg)}">${cl.avg===null?'—':ar(cl.avg)+'٪'}</td></tr>`).join('')}
     </tbody></table></div></section>
-  <div class="g2">
-    <section class="panel"><h2>أكثر الأسئلة خطأً</h2><p class="sub">مع الرسالة اللي تصحح المفهوم</p>
-      <div class="hq">${d.qs.filter(x=>x.p<100).slice(0,5).map(x=>`<div><span class="t"><span><span class="tag" style="--c:${HEX[x.c.id]}">${x.c.name}</span>${x.q.q}</span><strong style="color:${lvlColor(x.p)}">${ar(x.p)}٪</strong></span><small>💡 ${x.q.w}</small></div>`).join('')||'<p class="empty">كل الأسئلة جاوبها الجميع صح 👏</p>'}</div></section>
-    <section class="panel"><h2>يحتاجون متابعة (${ar(d.follow.length)})</h2><p class="sub">${ar(WEAK_MAX)} أو أقل من ${ar(6)} في المحور</p>
-      ${d.follow.length?`<div class="scroll"><table class="plain"><thead><tr><th>الاسم</th><th>الفصل</th><th>المحاور الضعيفة</th></tr></thead><tbody>
-      ${d.follow.sort((a,b)=>b.grade-a.grade||a.section.localeCompare(b.section)).slice(0,30).map(s=>`<tr><td>${esc(s.name)}</td><td>${classLabel(s.grade,s.section)}</td><td>${s.weak.map(c=>`${c.name} (${ar(s.best[c.id])})`).join('، ')}</td></tr>`).join('')}
-      </tbody></table></div>${d.follow.length>30?`<p class="sub" style="margin:0">و${ar(d.follow.length-30)} غيرهم في ملف Excel</p>`:''}`:'<p class="empty">ما فيه أحد يحتاج متابعة 👏</p>'}</section>
-  </div>
+  <section class="panel"><h2>أكثر الأسئلة خطأً</h2><p class="sub">النسبة = كم واحد جاوب صح من اللي حلّوا المحور</p>
+      <div class="hq">${d.qs.filter(x=>x.p<100).slice(0,5).map(x=>`<div><span class="t"><span><span class="tag" style="--c:${HEX[x.c.id]}">${x.c.name}</span>${x.q.q}</span><strong style="color:${lvlColor(x.p)}">${ar(x.p)}٪</strong></span><small>✔️ ${ar(x.ok)} من ${ar(x.n)} ${x.n===1?'محاولة':'محاولات'} أجابت صح</small><small>💡 ${x.q.w}</small></div>`).join('')||'<p class="empty">كل الأسئلة جاوبها الجميع صح 👏</p>'}</div></section>
   <section class="panel"><h2>🏆 أبطال الأمن (${ar(d.heroes.length)})</h2><p class="sub">للتكريم: ${ar(HERO_MIN)} أو ${ar(6)} في المحاور الأربعة كلها</p>
     ${d.heroes.length?`<div class="heroes">${d.heroes.sort((a,b)=>b.grade-a.grade).map(s=>`<span class="hero">⭐ ${esc(s.name)} <small>${classLabel(s.grade,s.section)}</small></span>`).join('')}</div>`:'<p class="empty">ما فيه أبطال للحين.</p>'}</section>
   </div>`;
