@@ -171,7 +171,8 @@ button{cursor:pointer}
 .rec.high{--lv:var(--bad);background:#FFFAFA}
 .rec.mid{--lv:var(--gold)}
 .rec.good{--lv:var(--ok);background:#FAFDFB}
-.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:560px){.kpis{gap:8px}.kpi{padding:10px}.kpi strong{font-size:1.4rem}.kpi span,.kpi em{font-size:.72rem}}
 .kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:0;min-width:0}
 .kpi span{font-size:.8rem;font-weight:600;color:var(--muted)}
@@ -184,7 +185,7 @@ button{cursor:pointer}
 @media (max-width:820px){.g2{grid-template-columns:1fr}}
 .bars{display:flex;flex-direction:column;gap:8px}
 .br{display:grid;grid-template-columns:62px 1fr auto;gap:10px;align-items:center;font-size:.86rem;font-weight:600}
-.br.w{grid-template-columns:110px 1fr auto}
+.br.w{grid-template-columns:130px 1fr auto}
 .br .tr{height:14px;background:#F1EEE5;border-radius:7px;overflow:hidden}
 .br .tr i{display:block;height:100%;border-radius:7px}
 .br em{font-style:normal;text-align:end;font-variant-numeric:tabular-nums;min-width:44px;color:var(--muted)}
@@ -219,6 +220,27 @@ td:first-child{text-align:start;font-weight:700}
 .gate input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;font-size:1rem}
 .err{color:var(--bad);font-size:.88rem;font-weight:600}
 .ok-msg{color:var(--ok);font-size:.84rem;font-weight:600}
+
+/* ---------- titles (ألقاب) ---------- */
+.ttl{display:inline-flex;align-items:center;gap:6px;background:var(--gold-soft);color:var(--gold-ink);border-radius:999px;padding:2px 12px;font-weight:700;font-size:.84rem;margin-top:4px}
+.ladder{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.step{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;font-size:.7rem;color:var(--muted);line-height:1.35}
+.step span{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:1.2rem;background:#F1F1EE;filter:grayscale(1);opacity:.55}
+.step.on span{background:var(--gold-soft);filter:none;opacity:1}
+.step.cur span{background:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+.step.cur{color:var(--ink);font-weight:700}
+.next{font-size:.84rem;color:var(--muted);text-align:center}
+.next b{color:var(--gold-ink)}
+.newttl{display:flex;align-items:center;gap:10px;justify-content:center;background:linear-gradient(90deg,var(--gold-soft),#fff,var(--gold-soft));border:1px solid #EAD9A8;border-radius:14px;padding:10px 14px;font-weight:700;color:var(--gold-ink);width:100%}
+.newttl span{font-size:1.6rem}
+
+/* ---------- teacher simplification ---------- */
+.summary{background:var(--green-soft);border-radius:14px;padding:12px 14px;font-weight:600;color:var(--green);font-size:.95rem;line-height:1.8}
+.how{font-size:.8rem;color:var(--muted);background:#FAF8F2;border-radius:10px;padding:6px 10px}
+.rec .step-no{flex:none;width:26px;height:26px;border-radius:50%;background:var(--lv);color:#fff;display:grid;place-items:center;font-weight:700;font-size:.85rem;margin-top:2px}
+details.more summary{cursor:pointer;font-weight:600;font-size:.86rem;color:var(--green)}
+details.more .recs{margin-top:10px}
+.kpi.up strong{color:var(--ok)}
 </style>
 </head>
 <body>
@@ -293,6 +315,18 @@ const CATS=[
 ];
 const CAT=Object.fromEntries(CATS.map(c=>[c.id,c]));
 
+/* ---------- الألقاب: لقب لكل عدد شارات (٠ إلى ٤) ---------- */
+const TITLES=[
+ {e:'🔍',m:'مستكشف السلامة',f:'مستكشفة السلامة'},
+ {e:'🛡️',m:'الحارس الصغير',f:'الحارسة الصغيرة'},
+ {e:'🔦',m:'كشّاف الأمان',f:'كشّافة الأمان'},
+ {e:'🐎',m:'فارس السلامة',f:'فارسة السلامة'},
+ {e:'🏆',m:'بطل الأمن',f:'بطلة الأمن'}
+];
+const titleOf=(n,g)=>TITLES[n][g==='f'?'f':'m'];
+
+
+
 /* ---------- state ---------- */
 let student=ls.get('abtal.student',null);
 let localResults=ls.get('abtal.results',[]);
@@ -365,8 +399,14 @@ function vHome(){
   const b=myBest(), n=earned(b);
   const pill=c=>{const s=b[c.id];if(s===undefined)return '<em class="pill go">ابدأ</em>';
     return s>=HERO_MIN?'<em class="pill done">✓ مكتملة</em>':`<em class="pill go">${ar(s)} من ${ar(6)}</em>`};
-  return `<div class="hello"><div><b>${he('مرحبًا','مرحبًا')} ${esc(student.name.split(' ')[0])}</b><small>الصف ${GRADE_NAME[student.grade]} · فصل ${classLabel(student.grade,student.section)}</small></div>
+  const T=TITLES[n];
+  return `<div class="hello"><div><b>مرحبًا ${esc(student.name.split(' ')[0])}</b><small>الصف ${GRADE_NAME[student.grade]} · فصل ${classLabel(student.grade,student.section)}</small>
+      <span class="ttl">${T.e} ${he('لقبك','لقبكِ')}: ${titleOf(n,student.gender)}</span></div>
     <span class="ring" style="${ringBg(n/4)}" aria-label="الشارات ${ar(n)} من ${ar(4)}"><span>${ar(n)} من ${ar(4)}</span></span></div>
+  <section class="card" style="gap:10px;padding:16px">
+    <div class="ladder" aria-label="سلّم الألقاب">${TITLES.map((t,i)=>`<div class="step ${i<n?'on':''} ${i===n?'cur':''}"><span>${t.e}</span>${titleOf(i,student.gender)}</div>`).join('')}</div>
+    <p class="next">${n<4?`${he('اجمع','اجمعي')} شارة ${n===3?'أخيرة':'واحدة'} ${he('لتصبح','لتصبحي')} <b>«${titleOf(n+1,student.gender)}»</b>`:`${he('وصلت','وصلتِ')} لأعلى لقب 🎉`}</p>
+  </section>
   <div class="list">
     ${CATS.map(c=>`<button class="row" data-cat="${c.id}" style="--c:${HEX[c.id]}"><span class="emo">${EMO[c.id]}</span><span class="tx"><b>${c.name}</b><small>${c.desc}</small></span>${pill(c)}</button>`).join('')}
     <button class="row cert" ${n===4?'id="cert"':'disabled'}><span class="emo">📜</span><span class="tx"><b>شهادتي</b><small>${n===4?'شهادة بطل الأمن جاهزة باسمك':'تظهر بعد جمع الشارات الأربع'}</small></span>
@@ -396,6 +436,7 @@ function vResult(){
     <div class="score" style="${ringBg(s/6,col,'#F1EEE5')}"><div><strong>${ar(s)}</strong><span>من ${ar(6)}</span></div></div>
     <h2>${title}</h2>
     ${got?`<div class="badge"><span>${EMO[c.id]}</span>${he('حصلت','حصلتِ')} على شارة ${c.name} · الشارات ${ar(n)} من ${ar(4)}</div>`:`<p style="color:var(--muted)">${he('تحتاج','تحتاجين')} ${ar(HERO_MIN)} إجابات صحيحة للحصول على شارة ${c.name}</p>`}
+    ${quiz.prevN!==undefined&&n>quiz.prevN?`<div class="newttl pop"><span>${TITLES[n].e}</span>لقب جديد: ${titleOf(n,student.gender)}!</div>`:''}
     <p class="save">${lastSave||'جارٍ الحفظ…'}</p>
     <div class="btns">${hero?'<button class="btn-p" id="cert">افتح شهادتي 📜</button>':'<button class="btn-p" id="home">الرجوع للمحاور</button>'}<button class="btn-s" id="again">إعادة المحاولة</button></div>
   </section>`;
@@ -406,8 +447,7 @@ function vCert(){
     <div class="top"><div class="crest">🏆</div><b>شهادة ${he('بطل','بطلة')} الأمن</b><small>برنامج الأمن والسلامة المدرسية</small></div>
     <div class="body">
       <p>تُمنح هذه الشهادة ${he('للطالب','للطالبة')}</p>
-      <span class="nm">${esc(student.name)}</span>
-      <p>الصف ${GRADE_NAME[student.grade]} · فصل ${classLabel(student.grade,student.section)}</p>
+      <span class="nm">${esc(student.name)}</span>      <p>الصف ${GRADE_NAME[student.grade]} · فصل ${classLabel(student.grade,student.section)}</p>
       <p>${he('لاجتيازه','لاجتيازها')} محاور السلامة والحد من الكوارث والإخلاء والنقل المدرسي بتفوق</p>
       <div class="seal" aria-hidden="true">${CATS.map(c=>EMO[c.id]).join('')}</div>
       <p style="font-size:.82rem">${d} · مدرسة سكينة بنت أبي وقاص</p>
@@ -447,40 +487,62 @@ function compute(){
   const gGap=CATS.map(c=>{const m=rs.filter(r=>(F.cls==='all'||r.grade+r.section===F.cls)&&r.gender==='m'&&r.cat===c.id),f=rs.filter(r=>(F.cls==='all'||r.grade+r.section===F.cls)&&r.gender==='f'&&r.cat===c.id);
     return {c,m:avg(m),f:avg(f),ok:m.length>=5&&f.length>=5}});
   const totalSize=classes.reduce((a,c)=>a+c.size,0), sizedN=classes.filter(c=>c.size).reduce((a,c)=>a+c.n,0);
-  return {rs,scope,list,heroes,follow,classes,catAvg,qs,gGap,totalSize,sizedN,all:avg(scope)};
+  // التحسن: أول محاولة مقابل آخر محاولة لنفس الطالب في نفس المحور (مثل الاختبار القبلي والبعدي)
+  const tries={};scope.forEach(r=>{(tries[r.studentKey+'#'+r.cat]||(tries[r.studentKey+'#'+r.cat]=[])).push(r)});
+  const pairs=Object.values(tries).filter(a=>a.length>=2).map(a=>{a.sort((x,y)=>x.ts-y.ts);return {first:a[0].score,last:a[a.length-1].score}});
+  const imp=pairs.length?{first:Math.round(pairs.reduce((s,p)=>s+p.first,0)/pairs.length/6*100),last:Math.round(pairs.reduce((s,p)=>s+p.last,0)/pairs.length/6*100),n:pairs.length,people:new Set(Object.entries(tries).filter(([,a])=>a.length>=2).map(([k])=>k.split('#')[0])).size}:null;
+  if(imp)imp.gain=imp.last-imp.first;
+  // توزيع الألقاب حسب عدد الشارات
+  const titles=TITLES.map(()=>0);list.forEach(s=>{titles[CATS.filter(c=>(s.best[c.id]??0)>=HERO_MIN).length]++});
+  return {rs,scope,list,heroes,follow,classes,catAvg,qs,gGap,totalSize,sizedN,all:avg(scope),imp,titles};
 }
 
 /* ---------- teacher: recommendations ---------- */
 function recommend(d){
+  // كل توصية: عنوان = وش تسوين، وجملة وحدة = ليش. مرتبة من الأهم للأقل.
   const R=[];
   if(!d.scope.length)return R;
-  // 1) participation
-  if(d.totalSize){
-    const low=d.classes.filter(c=>c.size&&c.part<50).sort((a,b)=>a.part-b.part);
-    if(low.length>3)R.push({lv:'high',ic:'📣',t:`${ar(low.length)} فصول شارك فيها أقل من نصف الطلاب`,p:`أقلها مشاركة: ${low.slice(0,3).map(c=>`${c.l} (${ar(c.n)} من ${ar(c.size)})`).join('، ')}. أرسلي رابط الموقع لمعلمات هذه الفصول أو لأولياء الأمور.`});
-    else if(low.length)R.push({lv:'high',ic:'📣',t:`ذكّري ${low.length===1?'فصل':'فصول'} ${low.map(c=>c.l).join('، ')} بالمشاركة`,p:`شارك أقل من نصف الطلاب: ${low.map(c=>`${c.l} (${ar(c.n)} من ${ar(c.size)})`).join('، ')}.`});
-  }else R.push({lv:'mid',ic:'🧮',t:'أدخلي عدد الطلاب في كل فصل',p:'عشان تعرفين نسبة المشاركة وأي فصل ما شارك. تلقينها تحت في «مشاركة الفصول».'});
-  // 2) weakest topic + what to teach
   const ranked=d.catAvg.filter(x=>x.v!==null&&x.n>=3).sort((a,b)=>a.v-b.v);
+  // 1) أضعف محور + رسالة جاهزة للإذاعة
   if(ranked.length&&ranked[0].v<80){
     const w=ranked[0], hq=d.qs.filter(x=>x.c.id===w.c.id).slice(0,2);
-    R.push({lv:w.v<60?'high':'mid',ic:'🎙️',t:`ركزي التوعية على «${w.c.name}»`,p:`أضعف محور بمتوسط ${ar(w.v)}٪. أكثر سؤال أخطأ فيه الطلاب: «${hq[0].q.q}» (${ar(hq[0].ok)} من ${ar(hq[0].n)} أجابوا صح).`,msg:`الرسالة المقترحة للإذاعة: ${hq[0].q.w}${hq[1]&&hq[1].p<70?' '+hq[1].q.w:''}`});
+    R.push({lv:w.v<60?'high':'mid',ic:'🎙️',t:`خصّصي الإذاعة القادمة لـ «${w.c.name}»`,p:`هو أضعف محور (${ar(w.v)}٪ إجابات صحيحة). أكثر سؤال غلطوا فيه: «${hq[0].q.q}»`,msg:`📢 اقرئي في الإذاعة: ${hq[0].q.w}${hq[1]&&hq[1].p<70?' '+hq[1].q.w:''}`});
   }
-  // 3) weak class × topic cells
+  // 2) فصول تحتاج حصة توعية
   const cells=[];d.classes.forEach(cl=>CATS.forEach(c=>{const x=cl.cat[c.id];if(x.v!==null&&x.n>=3&&x.v<60)cells.push({cl,c,v:x.v})}));
   cells.sort((a,b)=>a.v-b.v);
-  if(cells.length)R.push({lv:'high',ic:'🏫',t:`حصة توعية قصيرة ${cells.length===1?'لفصل':'لهذه الفصول'}`,p:cells.slice(0,4).map(x=>`فصل ${x.cl.l} في ${x.c.name} (${ar(x.v)}٪)`).join('، ')+(cells.length>4?` و${ar(cells.length-4)} غيرها.`:'.')});
-  // 5) topics many haven't tried
+  if(cells.length)R.push({lv:'high',ic:'🏫',t:`حصة توعية قصيرة (١٠ دقائق) ${cells.length===1?'لفصل واحد':'لهذه الفصول'}`,p:cells.slice(0,3).map(x=>`فصل ${x.cl.l}: ${x.c.name}`).join(' · ')+(cells.length>3?` · و${ar(cells.length-3)} غيرها في الجدول تحت.`:'')});
+  // 3) المشاركة
+  if(d.totalSize){
+    const low=d.classes.filter(c=>c.size&&c.part<50).sort((a,b)=>a.part-b.part);
+    if(low.length)R.push({lv:'high',ic:'📣',t:`أرسلي رابط الموقع ${low.length===1?'لفصل':'لفصول'} ${low.slice(0,4).map(c=>c.l).join('، ')}${low.length>4?' وغيرها':''}`,p:'شارك فيها أقل من نصف الطلاب.'});
+  }else R.push({lv:'mid',ic:'🧮',t:'أدخلي عدد الطلاب في كل فصل (مرة وحدة بس)',p:'عشان تعرفين أي فصل ما شارك. تلقينها تحت في «مشاركة الفصول».'});
+  // 4) محاور ما حلّوها
   const notTried=d.catAvg.filter(x=>d.list.length>=5&&x.people<d.list.length*0.6);
-  if(notTried.length)R.push({lv:'mid',ic:'⏳',t:`كثير ما حلّوا ${notTried.map(x=>'«'+x.c.name+'»').join(' و')}`,p:`حلّه ${notTried.map(x=>`${ar(x.people)} من ${ar(d.list.length)}`).join(' و')} مشارك. شجعيهم يكملون المحاور الأربعة.`});
-  // 6) gender gap
+  if(notTried.length)R.push({lv:'mid',ic:'⏳',t:`شجعيهم يحلّون ${notTried.map(x=>'«'+x.c.name+'»').join(' و')}`,p:`حلّه ${notTried.map(x=>`${ar(x.people)} بس من ${ar(d.list.length)}`).join(' و')}.`});
+  // 5) الفرق بين الطلاب والطالبات
   if(F.gender==='all'){const g=d.gGap.filter(x=>x.ok&&Math.abs(x.m-x.f)>=15).sort((a,b)=>Math.abs(b.m-b.f)-Math.abs(a.m-a.f))[0];
-    if(g){const weakF=g.f<g.m;R.push({lv:'mid',ic:'⚖️',t:`${weakF?'الطالبات':'الطلاب'} أضعف في «${g.c.name}»`,p:`بفارق ${ar(Math.abs(g.m-g.f))} نقطة (الطلاب ${ar(g.m)}٪، الطالبات ${ar(g.f)}٪). يفيد نشاط توعوي موجّه ${weakF?'للطالبات':'للطلاب'}.`})}}
-  // 7) celebrate
-  if(d.heroes.length)R.push({lv:'good',ic:'🏆',t:`كرّمي ${plural(d.heroes.length,'بطل الأمن','بطلَي الأمن','أبطال أمن')} في الطابور`,p:`أكملوا المحاور الأربعة بـ ${ar(HERO_MIN)} أو ${ar(6)} في كل محور. أسماؤهم تحت.`});
+    if(g){const weakF=g.f<g.m;R.push({lv:'mid',ic:'⚖️',t:`نشاط عن «${g.c.name}» ${weakF?'للطالبات':'للطلاب'}`,p:`${weakF?'الطالبات':'الطلاب'} أقل بـ ${ar(Math.abs(g.m-g.f))} نقطة في هذا المحور.`})}}
+  // 6) إعادة المحاولة (التحسن)
+  if(d.imp&&d.imp.n>=3){
+    if(d.imp.gain>=10)R.push({lv:'good',ic:'📈',t:'شجعيهم يعيدون المحاولة',p:`اللي أعادوا ارتفعت درجتهم من ${ar(d.imp.first)}٪ إلى ${ar(d.imp.last)}٪. الإعادة تثبّت المعلومة.`});
+  }
+  // 7) التكريم
+  if(d.heroes.length)R.push({lv:'good',ic:'🏆',t:`كرّمي ${plural(d.heroes.length,'بطل الأمن','بطلَي الأمن','أبطال أمن')} في الطابور`,p:'أسماؤهم في آخر الصفحة.'});
   const best=ranked[ranked.length-1];
-  if(best&&best.v>=80&&ranked.length>1)R.push({lv:'good',ic:'✅',t:`«${best.c.name}» مستواه ممتاز`,p:`متوسط ${ar(best.v)}٪، ما يحتاج تركيز حالياً.`});
-  return R;
+  if(best&&best.v>=80&&ranked.length>1)R.push({lv:'good',ic:'✅',t:`«${best.c.name}» ممتاز، ما يحتاج شي حالياً`,p:`${ar(best.v)}٪ إجابات صحيحة.`});
+  const order={high:0,mid:1,good:2};
+  return R.map((r,i)=>({...r,i})).sort((a,b)=>order[a.lv]-order[b.lv]||a.i-b.i);
+}
+// ملخص بجملة وحدة أعلى اللوحة
+function summaryLine(d){
+  const lvl=v=>v>=80?'ممتاز':v>=60?'جيد':'يحتاج تعزيز';
+  const ranked=d.catAvg.filter(x=>x.v!==null).sort((a,b)=>a.v-b.v);
+  let s=`باختصار: المستوى العام <b>${lvl(d.all)}</b> (${ar(d.all)}٪ إجابات صحيحة)`;
+  if(ranked.length>1)s+=`، أقوى محور «${ranked[ranked.length-1].c.name}» وأضعفها «${ranked[0].c.name}»`;
+  s+='.';
+  if(d.imp&&d.imp.n>=3&&d.imp.gain>0)s+=` اللي أعادوا المحاولة تحسنوا بـ ${ar(d.imp.gain)} نقطة.`;
+  return s;
 }
 
 /* ---------- teacher: views ---------- */
@@ -504,30 +566,41 @@ function vDash(){
   if(!d.rs.length) return `<div class="dash">${head}<section class="panel"><p class="empty">ما فيه نتائج للحين. أول ما يحل الطلاب الأسئلة تظهر النتائج والتوصيات هنا.</p></section>${vSizes(d)}</div>`;
   const partTxt=d.totalSize?ar(Math.min(100,pct(d.sizedN,d.totalSize)))+'٪':ar(d.list.length);
   return `<div class="dash">${head}
-  <section class="panel"><h2>📌 التوصيات</h2><p class="sub">وش تسوين بناءً على النتائج${F.cls!=='all'?' (فصل '+classLabel(+F.cls[0],F.cls.slice(1))+')':''}</p>
-    <div class="recs">${R.length?R.map(r=>`<div class="rec ${r.lv}"><span class="ic">${r.ic}</span><div><b>${r.t}</b><p>${r.p}</p>${r.msg?`<div class="msg">${r.msg}</div>`:''}</div></div>`).join(''):'<p class="empty">ما فيه توصيات، النتائج ممتازة 👏</p>'}</div></section>
+  <p class="summary">${summaryLine(d)}</p>
+  <section class="panel"><h2>📌 وش أسوي هالأسبوع؟</h2><p class="sub">أهم ${R.length>=3?'٣ خطوات':'الخطوات'}، مرتبة من الأهم${F.cls!=='all'?' · فصل '+classLabel(+F.cls[0],F.cls.slice(1)):''}</p>
+    ${R.length?`<div class="recs">${R.slice(0,3).map((r,i)=>recHTML(r,i+1)).join('')}</div>
+    ${R.length>3?`<details class="more"><summary>توصيات إضافية (${ar(R.length-3)})</summary><div class="recs">${R.slice(3).map(r=>recHTML(r)).join('')}</div></details>`:''}`:'<p class="empty">ما فيه توصيات، النتائج ممتازة 👏</p>'}</section>
   <div class="kpis">
     <div class="kpi"><span>${d.totalSize?'نسبة المشاركة':'المشاركون'}</span><strong>${partTxt}</strong><em>${d.totalSize?`${ar(d.sizedN)} من ${ar(d.totalSize)} طالب`:'أدخلي أعداد الفصول لحساب النسبة'}</em></div>
     <div class="kpi"><span>متوسط الإجابات الصحيحة</span><strong>${d.all===null?'—':ar(d.all)+'٪'}</strong><em>${ar(d.scope.length)} محاولة</em></div>
+    <div class="kpi up"><span>التحسن بعد الإعادة</span><strong>${d.imp?(d.imp.gain>0?'+':'')+ar(d.imp.gain)+'٪':'—'}</strong><em>${d.imp?`من ${ar(d.imp.first)}٪ إلى ${ar(d.imp.last)}٪ · ${ar(d.imp.people)} طالب`:'يظهر لما يعيد الطلاب المحاولة'}</em></div>
     <div class="kpi gold"><span>أبطال الأمن</span><strong>${ar(d.heroes.length)}</strong><em>${ar(HERO_MIN)}+ في المحاور الأربعة</em></div>
   </div>
   <div class="g2">
-    <section class="panel"><h2>مستوى كل محور</h2><p class="sub">متوسط نسبة الإجابات الصحيحة</p>
+    <section class="panel"><h2>مستوى كل محور</h2><p class="sub">متوسط نسبة الإجابات الصحيحة</p><p class="how">💡 كيف أقرأه؟ الشريط الأطول = الطلاب فاهمين المحور أكثر. الأحمر يحتاج توعية.</p>
       <div class="bars">${d.catAvg.map(x=>bar(EMO[x.c.id]+' '+x.c.name,x.v,lvlColor(x.v),x.v===null?'—':`<b>${ar(x.v)}٪</b>`,true)).join('')}</div>
       <div class="legend"><span><i style="background:#1B8354"></i>٨٠٪ فأكثر</span><span><i style="background:#C9A13B"></i>٦٠–٧٩٪</span><span><i style="background:#C23B3B"></i>أقل من ٦٠٪</span></div></section>
     <section class="panel"><h2>مشاركة الفصول</h2><p class="sub">${d.totalSize?'كم طالب شارك من عدد الفصل':'عدد المشاركين (أدخلي أعداد الفصول تحت لحساب النسبة)'}</p>
       <div class="bars">${d.classes.map(c=>c.size?bar('فصل '+c.l,c.part,c.part>=80?'#1B8354':c.part>=50?'#C9A13B':'#C23B3B',`<b>${ar(c.n)}</b> من ${ar(c.size)}`):bar('فصل '+c.l,Math.min(100,c.n/Math.max(1,...d.classes.map(x=>x.n))*100),'#127A66',`<b>${ar(c.n)}</b>`)).join('')}</div>
       ${vSizes(d)}</section>
   </div>
-  <section class="panel"><h2>خريطة الفصول والمحاور</h2><p class="sub">الخانات الحمراء تحتاج حصة توعية</p>
+  <section class="panel"><h2>خريطة الفصول والمحاور</h2><p class="sub">كل خانة = فصل في محور</p><p class="how">💡 كيف أقرأه؟ ابحثي عن الخانات <b style="color:#A3242A">الحمراء</b>: هذا الفصل يحتاج حصة توعية في هذا المحور. الأخضر ممتاز.</p>
     <div class="scroll"><table><thead><tr><th>الفصل</th>${CATS.map(c=>`<th>${EMO[c.id]} ${c.name}</th>`).join('')}<th>المتوسط</th></tr></thead><tbody>
     ${d.classes.map(cl=>`<tr><td>فصل ${cl.l}</td>${CATS.map(c=>{const v=cl.cat[c.id].v;return `<td style="${heat(v)}">${v===null?'—':ar(v)+'٪'}</td>`}).join('')}<td style="${heat(cl.avg)}">${cl.avg===null?'—':ar(cl.avg)+'٪'}</td></tr>`).join('')}
     </tbody></table></div></section>
-  <section class="panel"><h2>أكثر الأسئلة خطأً</h2><p class="sub">النسبة = كم واحد جاوب صح من اللي حلّوا المحور</p>
+  <section class="panel"><h2>أكثر الأسئلة خطأً</h2><p class="sub">النسبة = كم واحد جاوب صح من اللي حلّوا المحور</p><p class="how">💡 تحت كل سؤال معلومة جاهزة تقدرين تقرينها للطلاب كما هي.</p>
       <div class="hq">${d.qs.filter(x=>x.p<100).slice(0,5).map(x=>`<div><span class="t"><span><span class="tag" style="--c:${HEX[x.c.id]}">${x.c.name}</span>${x.q.q}</span><strong style="color:${lvlColor(x.p)}">${ar(x.p)}٪</strong></span><small>✔️ ${ar(x.ok)} من ${ar(x.n)} ${x.n===1?'محاولة':'محاولات'} أجابت صح</small><small>💡 ${x.q.w}</small></div>`).join('')||'<p class="empty">كل الأسئلة جاوبها الجميع صح 👏</p>'}</div></section>
+  <div class="g2">
+  <section class="panel"><h2>🎖️ ألقاب الطلاب</h2><p class="sub">كم طالب وصل لكل لقب (حسب عدد الشارات)</p>
+    <div class="bars">${TITLES.map((t,i)=>bar(t.e+' '+t.m,pct(d.titles[i],Math.max(1,...d.titles)),i===4?'#C9A13B':'#127A66',`<b>${ar(d.titles[i])}</b>`,true)).join('')}</div>
+    <p class="how">💡 كل شارة = ${ar(HERO_MIN)} من ${ar(6)} أو أكثر في محور. اللقب يرتفع مع كل شارة لين «بطل الأمن».</p></section>
   <section class="panel"><h2>🏆 أبطال الأمن (${ar(d.heroes.length)})</h2><p class="sub">للتكريم: ${ar(HERO_MIN)} أو ${ar(6)} في المحاور الأربعة كلها</p>
     ${d.heroes.length?`<div class="heroes">${d.heroes.sort((a,b)=>b.grade-a.grade).map(s=>`<span class="hero">⭐ ${esc(s.name)} <small>${classLabel(s.grade,s.section)}</small></span>`).join('')}</div>`:'<p class="empty">ما فيه أبطال للحين.</p>'}</section>
+  </div>
   </div>`;
+}
+function recHTML(r,no){
+  return `<div class="rec ${r.lv}">${no?`<span class="step-no">${ar(no)}</span>`:`<span class="ic">${r.ic}</span>`}<div><b>${no?r.ic+' ':''}${r.t}</b><p>${r.p}</p>${r.msg?`<div class="msg">${r.msg}</div>`:''}</div></div>`;
 }
 function vSizes(d){
   return `<details class="sizes" ${d.totalSize?'':'open'}><summary>${d.totalSize?'تعديل عدد الطلاب في كل فصل':'✏️ أدخلي عدد الطلاب في كل فصل'}</summary>
@@ -542,7 +615,9 @@ function makeDemo(){
   const out=[];
   GRADES.forEach(g=>SECTIONS.forEach(s=>{const n=g===3&&s==='ب'?3:6+Math.floor(rnd()*8);for(let k=0;k<n;k++){const gen=rnd()<.5?'m':'f';const name=(gen==='m'?mN:fN)[Math.floor(rnd()*10)]+' '+fam[Math.floor(rnd()*6)]+(k>9?' '+ar(k):'');
     CATS.forEach(c=>{if(rnd()<(c.id==='bus'?.4:.15))return;const skill=.5+g*.07+(c.id==='bus'?-.15:0)+(c.id==='safety'?.06:0)+(s==='ب'?-.05:0)+(c.id==='disaster'&&gen==='f'?-.12:0);const answers=c.qs.map((_,i)=>rnd()<skill-(i===4?.2:0)?1:0);
-      out.push({id:'demo'+out.length,name,gender:gen,grade:g,section:s,studentKey:name+'|'+gen+'|'+g+s,cat:c.id,answers,score:answers.reduce((a,b)=>a+b,0),ts:Date.now()-Math.floor(rnd()*864e6)})})}}));
+      const ts=Date.now()-Math.floor(rnd()*864e6), sc=answers.reduce((a,b)=>a+b,0);
+      out.push({id:'demo'+out.length,name,gender:gen,grade:g,section:s,studentKey:name+'|'+gen+'|'+g+s,cat:c.id,answers,score:sc,ts});
+      if(sc<HERO_MIN&&rnd()<.45){const a2=answers.map(v=>v||rnd()<.55?1:0);out.push({id:'demo'+out.length,name,gender:gen,grade:g,section:s,studentKey:name+'|'+gen+'|'+g+s,cat:c.id,answers:a2,score:a2.reduce((a,b)=>a+b,0),ts:ts+36e5})}})}}));
   return out;
 }
 
@@ -585,6 +660,7 @@ document.addEventListener('click',async e=>{
   else if(t.id==='quit'){go('home')}
   else if(t.id==='next'){
     if(quiz.i<5){quiz.i++;go('quiz');return}
+    quiz.prevN=earned(myBest());
     const c=CAT[quiz.cat];const answers=c.qs.map((q,i)=>quiz.answers[i]===q.a?1:0);quiz.score=answers.reduce((a,b)=>a+b,0);
     const rec={id:uid(),name:student.name,gender:student.gender,grade:student.grade,section:student.section,studentKey:skey(student),cat:quiz.cat,answers,score:quiz.score,ts:Date.now()};
     localResults.push(rec);lastSave='';go('result');localResults.pop();
