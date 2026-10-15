@@ -45,12 +45,6 @@ button{cursor:pointer}
 .hd.compact h1{font-size:1.25rem}
 .goldline{height:5px;background:linear-gradient(90deg,var(--gold),var(--gold2),var(--gold))}
 
-/* ---------- footer ---------- */
-.ft{margin-top:auto;background:#fff;border-top:1px solid var(--line2);text-align:center;padding-inline:16px;padding-block:14px;font-size:.84rem;color:var(--muted);line-height:1.8}
-.ft .sch{font-family:var(--kufi);font-weight:700;color:var(--green);font-size:.92rem}
-.ft b{color:var(--green)}
-.ft .ppl{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 16px}
-
 /* ---------- student ---------- */
 .wrap{width:100%;max-width:600px;margin:0 auto;padding-inline:16px;padding-block:18px 32px;display:flex;flex-direction:column;gap:14px}
 .card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px}
@@ -248,13 +242,9 @@ details.more .recs{margin-top:10px}
   <nav class="switch" aria-label="التنقل"><button id="tabStudent" aria-pressed="true">الطلاب</button><button id="tabTeacher" aria-pressed="false">المعلمة</button></nav>
   <div class="crest" aria-hidden="true">⛑️</div>
   <h1>أبطال الأمن</h1>
-  <p>مدرسة سكينة بنت أبي وقاص · الأمن والسلامة المدرسية</p>
+  <p>الأمن والسلامة المدرسية</p>
 </div><div class="goldline"></div></header>
 <main id="app"></main>
-<footer class="ft">
-  <div class="sch">مدرسة سكينة بنت أبي وقاص</div>
-  <div class="ppl"><span>مديرة المدرسة: <b>أ/ نبيلة تكر</b></span><span>إعداد: <b>أ/ بدرية الحجيلي</b></span></div>
-</footer>
 
 <script>
 /* =========================================================
@@ -450,8 +440,7 @@ function vCert(){
       <span class="nm">${esc(student.name)}</span>      <p>الصف ${GRADE_NAME[student.grade]} · فصل ${classLabel(student.grade,student.section)}</p>
       <p>${he('لاجتيازه','لاجتيازها')} محاور السلامة والحد من الكوارث والإخلاء والنقل المدرسي بتفوق</p>
       <div class="seal" aria-hidden="true">${CATS.map(c=>EMO[c.id]).join('')}</div>
-      <p style="font-size:.82rem">${d} · مدرسة سكينة بنت أبي وقاص</p>
-      <div class="sign"><div>مديرة المدرسة<b>أ/ نبيلة تكر</b></div><div>إعداد<b>أ/ بدرية الحجيلي</b></div></div>
+      <p style="font-size:.82rem">${d}</p>
     </div>
   </section>
   <p class="hint">${he('صوّر','صوّري')} الشاشة ${he('واحتفظ','واحتفظي')} بشهادتك 📸</p>
