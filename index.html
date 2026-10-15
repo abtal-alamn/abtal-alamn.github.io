@@ -339,8 +339,9 @@ const skey=s=>`${s.name.trim().replace(/\s+/g,' ')}|${s.gender}|${s.grade}${s.se
 const he=(m,f)=>student&&student.gender==='f'?f:m;
 
 /* ---------- حساب المعلمة ---------- */
-const USER_RE=/^[a-z0-9-]{3,20}$/;
-const cleanUser=u=>String(u||'').trim().toLowerCase();
+const USER_RE=/^[a-z0-9][a-z0-9-]{2,19}$/;
+const digits=s=>String(s||'').replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+const cleanUser=u=>digits(u).trim().toLowerCase();
 let T=ls.get('abtal.teacher',null);          // {u, token} بعد الدخول
 let gateMode='login', gateU=T?T.u:'', gateErr='', justJoined=false;
 
@@ -393,13 +394,13 @@ async function openDash(){
 }
 async function authSubmit(){
   const sign=gateMode==='signup';
-  const u=cleanUser($('#tu').value), p=$('#tp').value;
+  const u=cleanUser($('#tu').value), p=digits($('#tp').value);
   gateU=u;
   const fail=m=>{gateErr=m;render()};
   if(!apiReady()) return fail('الموقع غير مربوط بالشيت.');
   if(!USER_RE.test(u)) return fail(sign?ERR['bad username']:ERR['wrong login']);
   if(sign&&p.length<8) return fail(ERR['weak password']);
-  if(sign&&p!==$('#tp2').value) return fail('كلمتا المرور غير متطابقتين.');
+  if(sign&&p!==digits($('#tp2').value)) return fail('كلمتا المرور غير متطابقتين.');
   gateErr=''; loading=true; render();
   try{
     const j=await api({action:sign?'register':'login',username:u,password:p});
