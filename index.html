@@ -214,6 +214,15 @@ td:first-child{text-align:start;font-weight:700}
 .gate input{border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;font-size:1rem}
 .err{color:var(--bad);font-size:.88rem;font-weight:600}
 .ok-msg{color:var(--ok);font-size:.84rem;font-weight:600}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:#F1EEE5;border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:transparent;border-radius:9px;padding:8px;font-weight:700;font-size:.92rem;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--green);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:.84rem;font-weight:600;color:var(--muted)}
+.fld small{font-weight:500;font-size:.76rem}
+.linkp.new{border-color:var(--gold);background:var(--gold-soft)}
+.linkrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.linkrow code{flex:1 1 220px;min-width:0;background:#FAF8F2;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:.86rem;overflow-wrap:anywhere;text-align:left}
+.who{display:inline-block;background:var(--green-soft);color:var(--green);border-radius:999px;padding:1px 10px;font-weight:700;font-size:.8rem;direction:ltr}
 
 /* ---------- titles (ألقاب) ---------- */
 .ttl{display:inline-flex;align-items:center;gap:6px;background:var(--gold-soft);color:var(--gold-ink);border-radius:999px;padding:2px 12px;font-weight:700;font-size:.84rem;margin-top:4px}
@@ -322,18 +331,32 @@ let student=ls.get('abtal.student',null);
 let localResults=ls.get('abtal.results',[]);
 let remoteResults=[];
 let view='home', tab='student', quiz=null, lastSave='';
-let teacherOpen=false, teacherKey='', useDemo=false, demoCache=null, loading=false, sizesSaved=false;
+let teacherOpen=false, useDemo=false, demoCache=null, loading=false, sizesSaved=false;
 let F={cls:'all',gender:'all'};
 let sizes=ls.get('abtal.sizes',{});
 const apiReady=()=>API_URL.startsWith('https://script.google.com/');
 const skey=s=>`${s.name.trim().replace(/\s+/g,' ')}|${s.gender}|${s.grade}${s.section}`;
 const he=(m,f)=>student&&student.gender==='f'?f:m;
 
+/* ---------- حساب المعلمة ---------- */
+const USER_RE=/^[a-z0-9-]{3,20}$/;
+const cleanUser=u=>String(u||'').trim().toLowerCase();
+let T=ls.get('abtal.teacher',null);          // {u, token} بعد الدخول
+let gateMode='login', gateU=T?T.u:'', gateErr='', justJoined=false;
+
+// رمز المعلمة من رابط الطالب: ?t=sara-1 (نحفظه عشان يبقى لو فتح الموقع بعدين)
+const qsT=cleanUser(new URLSearchParams(location.search).get('t'));
+if(USER_RE.test(qsT)) ls.set('abtal.tcode',qsT);
+let teacherCode=ls.get('abtal.tcode','');
+const studentLink=()=>location.origin+location.pathname+'?t='+encodeURIComponent(T.u);
+
 /* ---------- Google Sheets ---------- */
-async function sendToSheet(rec){
-  const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'save',record:rec})});
-  const j=await res.json(); if(!j.ok) throw new Error(j.error||'save failed');
+async function api(body){
+  const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+  const j=await res.json(); if(!j.ok) throw new Error(j.error||'error');
+  return j;
 }
+async function sendToSheet(rec){ await api({action:'save',record:rec}) }
 async function flushPending(){
   if(!apiReady())return;
   const pending=ls.get('abtal.pending',[]); if(!pending.length)return;
@@ -346,10 +369,49 @@ async function saveResult(rec){
   try{await sendToSheet(rec);lastSave='✓ وصلت نتيجتك للمعلمة'}
   catch(e){const p=ls.get('abtal.pending',[]);p.push(rec);ls.set('abtal.pending',p);lastSave='محفوظة على جهازك، وتوصل للمعلمة أول ما يرجع الإنترنت'}
 }
-async function loadResults(key){
-  const res=await fetch(API_URL+'?action=results&key='+encodeURIComponent(key));
-  const j=await res.json(); if(!j.ok) throw new Error(j.error||'error');
+async function loadResults(){
+  const j=await api({action:'results',token:T&&T.token});
   return j.results;
+}
+const ERR={
+  'username taken':'اسم المستخدم محجوز، اختاري اسم ثاني.',
+  'bad username':'اسم المستخدم لازم يكون أحرف إنجليزي صغيرة وأرقام و - فقط (من ٣ إلى ٢٠).',
+  'weak password':'كلمة المرور لازم تكون ٨ أحرف على الأقل.',
+  'wrong login':'اسم المستخدم أو كلمة المرور غير صحيحة.',
+  'locked':'محاولات غلط كثيرة. جربي بعد ١٥ دقيقة.',
+  'expired':'انتهت الجلسة، ادخلي من جديد.'
+};
+const errMsg=e=>ERR[e.message]||'تعذّر الاتصال، تأكدي من الإنترنت وجربي مرة ثانية.';
+function logoutTeacher(msg){
+  T=null; ls.del('abtal.teacher'); teacherOpen=false; remoteResults=[]; useDemo=false;
+  justJoined=false; gateErr=msg||''; loading=false; render();
+}
+async function openDash(){
+  loading=true; render();
+  try{ remoteResults=await loadResults(); teacherOpen=true; useDemo=false; loading=false; render(); }
+  catch(e){ if(e.message==='expired') logoutTeacher(ERR.expired); else { loading=false; gateErr=errMsg(e); render(); } }
+}
+async function authSubmit(){
+  const sign=gateMode==='signup';
+  const u=cleanUser($('#tu').value), p=$('#tp').value;
+  gateU=u;
+  const fail=m=>{gateErr=m;render()};
+  if(!apiReady()) return fail('الموقع غير مربوط بالشيت.');
+  if(!USER_RE.test(u)) return fail(sign?ERR['bad username']:ERR['wrong login']);
+  if(sign&&p.length<8) return fail(ERR['weak password']);
+  if(sign&&p!==$('#tp2').value) return fail('كلمتا المرور غير متطابقتين.');
+  gateErr=''; loading=true; render();
+  try{
+    const j=await api({action:sign?'register':'login',username:u,password:p});
+    T={u:j.username,token:j.token}; ls.set('abtal.teacher',T); justJoined=sign;
+    await openDash();
+  }catch(e){ loading=false; fail(errMsg(e)); }
+}
+async function copyLink(btn){
+  const link=studentLink();
+  try{ await navigator.clipboard.writeText(link); }
+  catch(e){ const r=document.createRange(); r.selectNodeContents($('#slink')); const s=getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand('copy'); }
+  btn.textContent='تم النسخ ✓'; setTimeout(()=>{btn.textContent='نسخ'},2500);
 }
 flushPending(); window.addEventListener('online',flushPending);
 
@@ -536,18 +598,36 @@ function summaryLine(d){
 
 /* ---------- teacher: views ---------- */
 function vGate(){
-  return `<div class="dash"><section class="panel gate"><h2>لوحة المعلمة</h2><p class="sub" style="margin-top:0">أدخلي رمز الدخول لعرض النتائج والتوصيات.</p>
+  const sign=gateMode==='signup';
+  if(T&&loading) return `<div class="dash"><section class="panel gate"><h2>لوحة المعلمة</h2><p class="empty">جارٍ تحميل النتائج…</p></section></div>`;
+  return `<div class="dash"><section class="panel gate"><h2>لوحة المعلمة</h2>
+    <div class="seg" role="group"><button id="gmLogin" aria-pressed="${!sign}">دخول</button><button id="gmSign" aria-pressed="${sign}">حساب جديد</button></div>
+    <p class="sub" style="margin-top:0">${sign?'اختاري اسم مستخدم وكلمة مرور. ما نحتاج اسمك ولا جوالك.':'ادخلي باسم المستخدم وكلمة المرور.'}</p>
     ${apiReady()?'':'<p class="err">الموقع غير مربوط بـ Google Sheets بعد. ضعي رابط Web app في API_URL.</p>'}
-    <input id="pin" type="password" autocomplete="off" aria-label="رمز الدخول" placeholder="رمز الدخول">
-    <p class="err" id="pinErr" hidden></p>
-    <button class="btn primary" id="pinGo" ${loading?'disabled':''}>${loading?'جارٍ التحميل…':'دخول'}</button></section></div>`;
+    <form id="authForm" style="display:flex;flex-direction:column;gap:12px" novalidate>
+      <label class="fld">اسم المستخدم<input id="tu" dir="ltr" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="${sign?'مثال: sara-1':''}" value="${esc(gateU)}">
+        ${sign?'<small>أحرف إنجليزي صغيرة وأرقام و - (من ٣ إلى ٢٠)</small>':''}</label>
+      <label class="fld">كلمة المرور<input id="tp" type="password" dir="ltr" autocomplete="${sign?'new-password':'current-password'}" maxlength="100">
+        ${sign?'<small>٨ أحرف على الأقل</small>':''}</label>
+      ${sign?'<label class="fld">تأكيد كلمة المرور<input id="tp2" type="password" dir="ltr" autocomplete="new-password" maxlength="100"></label>':''}
+      <p class="err" ${gateErr?'':'hidden'}>${esc(gateErr)}</p>
+      <button class="btn primary" type="submit" ${loading?'disabled':''}>${loading?'جارٍ…':sign?'إنشاء الحساب':'دخول'}</button>
+    </form>
+    ${sign?'<p class="how">⚠️ احفظي اسم المستخدم وكلمة المرور عندك. ما فيه استرجاع تلقائي لو نسيتيها.</p>':''}
+  </section></div>`;
+}
+function vLink(){
+  return `<section class="panel linkp ${justJoined?'new':''}"><h2>🔗 رابط طلابك</h2>
+    <p class="sub">${justJoined?'تم إنشاء حسابك ✓ أرسلي هذا الرابط لقروب الطلاب، وكل نتيجة تجي منه تظهر لك هنا.':'أرسليه لطلابك، ونتائجهم توصل لك أنتِ بس.'}</p>
+    <div class="linkrow"><code dir="ltr" id="slink">${esc(studentLink())}</code><button class="btn primary" id="copyLink">نسخ</button>${navigator.share?'<button class="btn" id="shareLink">مشاركة</button>':''}</div></section>`;
 }
 const bar=(label,v,color,right,wide)=>`<div class="br ${wide?'w':''}"><span>${label}</span><span class="tr"><i style="width:${v??0}%;background:${color}"></i></span><em>${right}</em></div>`;
 function vDash(){
   const d=compute(), R=recommend(d), opt=(v,l,cur)=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`;
-  const head=`${useDemo?`<div class="demo"><span>هذي بيانات تجريبية للتوضيح، مو نتائج حقيقية.</span>${teacherKey?'<button class="btn" id="demoOff">النتائج الحقيقية</button>':''}</div>`:''}
-  <div class="dhead"><div><h1>لوحة المعلمة</h1><p>${ar(d.rs.length)} محاولة · آخر تحديث ${new Date().toLocaleTimeString('ar-SA',{hour:'numeric',minute:'2-digit'})}</p></div>
-    <div class="tools">${useDemo?'':'<button class="btn" id="demoOn">بيانات تجريبية</button><button class="btn" id="refresh">تحديث</button>'}<button class="btn primary" id="csv" ${d.scope.length?'':'disabled'}>تصدير Excel</button></div></div>
+  const head=`${useDemo?`<div class="demo"><span>هذي بيانات تجريبية للتوضيح، مو نتائج حقيقية.</span><button class="btn" id="demoOff">النتائج الحقيقية</button></div>`:''}
+  <div class="dhead"><div><h1>لوحة المعلمة</h1><p><span class="who">${esc(T.u)}</span> · ${ar(d.rs.length)} محاولة · آخر تحديث ${new Date().toLocaleTimeString('ar-SA',{hour:'numeric',minute:'2-digit'})}</p></div>
+    <div class="tools">${useDemo?'':'<button class="btn" id="demoOn">بيانات تجريبية</button><button class="btn" id="refresh">تحديث</button>'}<button class="btn primary" id="csv" ${d.scope.length?'':'disabled'}>تصدير Excel</button><button class="btn" id="tLogout">خروج</button></div></div>
+  ${useDemo?'':vLink()}
   <div class="filters">
     <label>الفصل<select id="fCls">${opt('all','كل الفصول',F.cls)}${CLASSES.map(c=>opt(c.k,'فصل '+c.l,F.cls)).join('')}</select></label>
     <label>الفئة<select id="fG">${opt('all','الطلاب والطالبات',F.gender)}${opt('m','الطلاب',F.gender)}${opt('f','الطالبات',F.gender)}</select></label>
@@ -630,13 +710,16 @@ function render(){
 }
 const go=v=>{view=v;render();scrollTo(0,0)};
 $('#tabStudent').onclick=()=>{tab='student';render()};
-$('#tabTeacher').onclick=()=>{tab='teacher';render()};
-document.addEventListener('input',e=>{if(e.target.id==='nm'){reg.name=e.target.value;const b=$('#go');if(b)b.disabled=!regOk()}});
+$('#tabTeacher').onclick=()=>{tab='teacher';if(T&&!teacherOpen&&!loading)openDash();else render()};
+document.addEventListener('input',e=>{
+  if(e.target.id==='nm'){reg.name=e.target.value;const b=$('#go');if(b)b.disabled=!regOk()}
+  if(e.target.id==='tu'){gateU=e.target.value}
+});
+document.addEventListener('submit',e=>{if(e.target.id==='authForm'){e.preventDefault();if(!loading)authSubmit()}});
 document.addEventListener('change',e=>{
   if(e.target.id==='fCls'){F.cls=e.target.value;render()}
   if(e.target.id==='fG'){F.gender=e.target.value;render()}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pin')$('#pinGo').click()});
 document.addEventListener('click',async e=>{
   const t=e.target.closest('button');if(!t||!$('#app').contains(t))return;
   if(t.dataset.g){reg.gender=t.dataset.g;render()}
@@ -651,19 +734,17 @@ document.addEventListener('click',async e=>{
     if(quiz.i<5){quiz.i++;go('quiz');return}
     quiz.prevN=earned(myBest());
     const c=CAT[quiz.cat];const answers=c.qs.map((q,i)=>quiz.answers[i]===q.a?1:0);quiz.score=answers.reduce((a,b)=>a+b,0);
-    const rec={id:uid(),name:student.name,gender:student.gender,grade:student.grade,section:student.section,studentKey:skey(student),cat:quiz.cat,answers,score:quiz.score,ts:Date.now()};
+    const rec={id:uid(),name:student.name,gender:student.gender,grade:student.grade,section:student.section,studentKey:skey(student),cat:quiz.cat,answers,score:quiz.score,ts:Date.now(),teacher:teacherCode||undefined};
     localResults.push(rec);lastSave='';go('result');localResults.pop();
     await saveResult(rec);if(view==='result')render()}
   else if(t.id==='again'){quiz={cat:quiz.cat,i:0,answers:[]};go('quiz')}
   else if(t.id==='cert'){go('cert')}
   else if(t.id==='home'){go('home')}
-  else if(t.id==='pinGo'){
-    const key=$('#pin').value.trim();
-    if(!apiReady()){const er=$('#pinErr');er.textContent='اربطي الموقع بالشيت أولاً.';er.hidden=false;return}
-    loading=true;render();
-    try{remoteResults=await loadResults(key);teacherKey=key;teacherOpen=true;useDemo=false;loading=false;render()}
-    catch(ex){loading=false;render();const er=$('#pinErr');er.textContent=ex.message==='wrong key'?'الرمز غير صحيح.':'تعذّر الاتصال، تأكدي من الإنترنت ومن رابط Web app.';er.hidden=false}}
-  else if(t.id==='refresh'){t.disabled=true;try{remoteResults=await loadResults(teacherKey)}catch(ex){}render()}
+  else if(t.id==='gmLogin'||t.id==='gmSign'){gateMode=t.id==='gmSign'?'signup':'login';gateErr='';render()}
+  else if(t.id==='copyLink'){copyLink(t)}
+  else if(t.id==='shareLink'){try{await navigator.share({title:'أبطال الأمن',text:'اختبار الأمن والسلامة 🦺',url:studentLink()})}catch(ex){}}
+  else if(t.id==='tLogout'){gateU=T?T.u:'';logoutTeacher()}
+  else if(t.id==='refresh'){t.disabled=true;try{remoteResults=await loadResults()}catch(ex){if(ex.message==='expired'){logoutTeacher(ERR.expired);return}}render()}
   else if(t.id==='demoOn'){useDemo=true;render()}
   else if(t.id==='demoOff'){useDemo=false;render()}
   else if(t.id==='csv'){exportCSV()}
